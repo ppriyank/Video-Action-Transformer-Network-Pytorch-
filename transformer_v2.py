@@ -14,6 +14,10 @@ class FeedForward(nn.Module):
         self.linear_1 = nn.Linear(d_model, d_ff)
         self.dropout = nn.Dropout(dropout)
         self.linear_2 = nn.Linear(d_ff, d_model)
+        
+        nn.init.normal(self.linear_1.weight, std=0.001)  
+        nn.init.normal(self.linear_2.weight, std=0.001)  
+
     def forward(self, x):
         x = self.dropout(F.relu(self.linear_1(x)))
         x = self.linear_2(x)
@@ -21,12 +25,16 @@ class FeedForward(nn.Module):
 
 # standard NORM layer of Transformer
 class Norm(nn.Module):
-    def __init__(self, d_model, eps = 1e-6):
+    def __init__(self, d_model, eps = 1e-6, trainable=True):
         super(Norm, self).__init__()
         self.size = d_model
         # create two learnable parameters to calibrate normalisation
-        self.alpha = nn.Parameter(torch.ones(self.size))
-        self.bias = nn.Parameter(torch.zeros(self.size))
+        if trainable:
+            self.alpha = nn.Parameter(torch.ones(self.size))
+            self.bias = nn.Parameter(torch.zeros(self.size))
+        else:
+            self.alpha = nn.Parameter(torch.ones(self.size), requires_grad=False)
+            self.bias = nn.Parameter(torch.zeros(self.size), requires_grad=False)
         self.eps = eps
     def forward(self, x):
         norm = self.alpha * (x - x.mean(dim=-1, keepdim=True)) \
@@ -101,7 +109,7 @@ class TX(nn.Module):
         # q,k,v : (b, t , d_model=1024 // 16 )
         A = attention(q_temp, k, v, self.d_model, mask, self.dropout)
         # A : (b , d_model=1024 // 16 )
-        q_ = norm_1(A + q)
+        q_ = self.norm_1(A + q)
         new_query = self.norm_2(q_ +  self.dropout_2(self.ff(q_))) 
         return new_query
 
@@ -120,30 +128,31 @@ class Block_head(nn.Module):
 
 
 class Tail(nn.Module):
-    def __init__(self, num_classes , num_frames):
+    def __init__(self, num_classes , num_frames, head=16):
         super(Tail, self).__init__()
         self.spatial_h = 7
         self.spatial_w = 4
-        self.head = 16
+        self.head = head
         self.num_features = 2048
         self.num_frames = num_frames 
         self.d_model = self.num_features / 2
         self.d_k = self.d_model // self.head
         self.bn1 = nn.BatchNorm2d(self.num_features)
-        self.bn2 = Norm(self.d_model)
+        self.bn2 = Norm(self.d_model, trainable=False)
         
         self.pos_embd = PositionalEncoder(self.num_features, self.num_frames)
         self.Qpr = nn.Conv2d(self.num_features, self.d_model, kernel_size=(7,4), stride=1, padding=0, bias=False)
 
         self.head_layers =[]
-        for i in range(16):
+        for i in range(self.head):
             self.head_layers.append(Block_head())
+
         self.list_layers = nn.ModuleList(self.head_layers)
         self.classifier = nn.Linear(self.d_model, num_classes)
         # resnet style initialization 
         nn.init.kaiming_normal(self.Qpr.weight, mode='fan_out')
         nn.init.normal(self.classifier.weight, std=0.001)  
-        nn.init.constant(self.classifier.bias, 0)
+        # nn.init.constant(self.classifier.bias, 0)
         
         nn.init.constant(self.bn1.weight , 1)
         nn.init.constant(self.bn1.bias , 0)
@@ -157,7 +166,7 @@ class Tail(nn.Module):
         x = F.relu(self.Qpr(x))
         # x: (b,t,1024,1,1) since its a convolution: spatial positional encoding is not added 
         # paper has a different base (resnet in this case): which 2048 x 7 x 4 vs 16 x 7 x 7 
-        x = x.view(-1, self.num_frames ,  self.d_model )
+        x = x.view(-1, t ,  self.d_model )
         x = self.bn2(x)
         # stabilization
         q = x[:,t/2,:] #middle frame is the query
@@ -167,10 +176,11 @@ class Tail(nn.Module):
         q = q.view(b, self.head, self.d_k  )
         k = k.view(b,t, self.head, self.d_k )
         v = v.view(b,t, self.head, self.d_k )
-        
+
         k = k.transpose(1,2)
         v = v.transpose(1,2)
-        
+        #  q: b, 16, 64
+        #  k,v: b, 16, 10 ,64
         outputs = []
         for i in range(self.head):
             outputs.append(self.list_layers[i](q[:,i],k[:,i], v[:,i]) )
