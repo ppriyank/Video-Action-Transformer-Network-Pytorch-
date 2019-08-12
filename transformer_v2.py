@@ -119,12 +119,6 @@ class Block_head(nn.Module):
         return q
 
 
-
-
-q = torch.rand([32,1024 ])
-k = torch.rand([32,10, 1024])
-v = torch.rand([32,10,1024])
-
 class Tail(nn.Module):
     def __init__(self, num_classes , num_frames):
         super(Tail, self).__init__()
@@ -134,38 +128,18 @@ class Tail(nn.Module):
         self.num_features = 2048
         self.num_frames = num_frames 
         self.d_model = self.num_features / 2
-        self.d_k = d_model // self.head
+        self.d_k = self.d_model // self.head
         self.bn1 = nn.BatchNorm2d(self.num_features)
         self.bn2 = Norm(self.d_model)
         
-
         self.pos_embd = PositionalEncoder(self.num_features, self.num_frames)
         self.Qpr = nn.Conv2d(self.num_features, self.d_model, kernel_size=(7,4), stride=1, padding=0, bias=False)
 
-        # self.t1 = Block_head()
-        # self.t2 = Block_head()
-        # self.t3 = Block_head()
-        # self.t4 = Block_head()
-        # self.t5 = Block_head()
-        # self.t6 = Block_head()
-        # self.t7 = Block_head()
-        # self.t8 = Block_head()
-        # self.t9 = Block_head()
-        # self.t10 = Block_head()
-        # self.t11 = Block_head()
-        # self.t12 = Block_head()
-        # self.t13 = Block_head()
-        # self.t14 = Block_head()
-        # self.t15 = Block_head()
-        # self.t16 = Block_head()
-        
         self.head_layers =[]
         for i in range(16):
             self.head_layers.append(Block_head())
         self.list_layers = nn.ModuleList(self.head_layers)
-
         self.classifier = nn.Linear(self.d_model, num_classes)
-
         # resnet style initialization 
         nn.init.kaiming_normal(self.Qpr.weight, mode='fan_out')
         nn.init.normal(self.classifier.weight, std=0.001)  
@@ -213,7 +187,7 @@ class Tail(nn.Module):
 # base is resnet
 # Tail is the main transormer network 
 class Semi_Transformer(nn.Module):
-    def __init__(self, num_classes, seq_len, loss={'xent'}, **kwargs):
+    def __init__(self, num_classes, seq_len):
         super(Semi_Transformer, self).__init__()
         resnet50 = torchvision.models.resnet50(pretrained=True)
         self.base = nn.Sequential(*list(resnet50.children())[:-2])
