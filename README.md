@@ -1,5 +1,5 @@
 # Video-Action-Transformer-Network-Pytorch-
-Pytorch Implementation of the paper Video Action Transformer Network   
+Pytorch and Tensorflow Implementation of the paper Video Action Transformer Network   
 *Rohit Girdhar, Joao Carreira, Carl Doersch, Andrew Zisserman*
 
 
