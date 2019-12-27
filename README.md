@@ -18,4 +18,5 @@ model = Semi_Transformer(num_classes=625 , seq_len = max_seq_len)
 ```
 
 
-In case you find any discrepency, please raise an issue
+In case you find any discrepency, please raise an issue. If any one was able to reproduce the paper results kindly help me with this [issue](https://github.com/ppriyank/Video-Action-Transformer-Network-Pytorch-/issues/2). If possible please meantion the changes needs to be further added. 
+
