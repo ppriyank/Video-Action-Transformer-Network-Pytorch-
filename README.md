@@ -4,7 +4,7 @@ Pytorch and Tensorflow Implementation of the paper Video Action Transformer Netw
 
 
 Retasked Video transformer (uses resnet as base) 
-**transformer_v1.py** is more like real transoformer, **transformer.py** more true to what paper advertises
+**transformer_v1.py** is more like real transformer, **transformer.py** more true to what paper advertises
 Usage : 
 ```
 from transformer_v1 import Semi_Transformer
